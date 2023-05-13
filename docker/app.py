@@ -212,7 +212,11 @@ def extract_game_info(video_title: str, description: str):
 def lambda_handler(event, context):
     print(event)
 
-    data = json.loads(event["body"])
+    if "body" in event:
+        data = json.loads(event["body"])
+    else:
+        data = event
+
     video_title = data["video_title"]
     description = data["description"]
 
