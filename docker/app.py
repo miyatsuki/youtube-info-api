@@ -180,14 +180,11 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
     return result
 
 
-def extract_game_info(video_title: str, description: str):
-    description = video_title + "\n" + description
-    description = replace_urls(description, "[URL]")
+def extract_game_info(video_title: str):
 
     system_str = "You are a helpful assistant."
     prompt = f"""
-コンテキスト:
-{description[:2000]}
+コンテキスト: {video_title}
 
 コンテキストはゲーム実況動画の説明文です。ゲームのタイトルを抽出してください。
 結果は以下のフォーマットで返してください。説明は不要です
@@ -234,7 +231,7 @@ def lambda_handler(event, context):
 
     elif video_type == "GAME":
         ans |= {
-            "game_title": extract_game_info(video_title, description)
+            "game_title": extract_game_info(video_title)
         }
     else:
         pass
