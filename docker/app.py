@@ -199,6 +199,13 @@ def extract_game_info(video_title: str, description: str):
     result = parse_llm_output_json(llm_result, model="gpt-4")
 
     ans = result.get("game_title")
+
+    if type(ans) == list:
+        if len(ans) > 0:
+            ans = ans[0]
+        else:
+            ans = None
+
     return ans
 
 
