@@ -6,7 +6,10 @@ from typing import Literal
 
 import openai
 import requests
-from miyatsuki_tools.llm_openai import parse_llm_output_json
+from miyatsuki_tools.llm_openai import (
+    execute_openai_for_json,
+    retry_with_exponential_backoff,
+)
 
 base_dir = pathlib.Path(__file__).parent
 
@@ -59,6 +62,7 @@ def execute_openai(system_str: str, prompt: str, model: str = "gpt-3.5-turbo"):
     return response.choices[0]["message"]["content"]
 
 
+@retry_with_exponential_backoff(max_retries=None)
 def classify_video_category(
     video_title: str, description: str
 ) -> Literal["SONG", "SINGING_STREAM", "GAME", "UNKNOWN"]:
@@ -83,9 +87,7 @@ def classify_video_category(
 {'{"video_type": category}'}
 ```
 """
-    llm_result = execute_openai(system_str, prompt[1:-1])
-    print(llm_result)
-    result = parse_llm_output_json(llm_result, model="gpt-4")
+    result = execute_openai_for_json(system_str, prompt[1:-1])
 
     ans = result.get("video_type", "UNKNOWN").upper()
     if ans not in ["SONG", "SINGING_STREAM", "GAME", "UNKNOWN"]:
@@ -94,6 +96,7 @@ def classify_video_category(
     return ans
 
 
+@retry_with_exponential_backoff(max_retries=None)
 def extract_song_info(video_title: str, description: str):
     system_str = (
         "You are a python simulator, which simulates the evaluation result of input"
@@ -139,12 +142,11 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
 実装がない箇所は関数名から挙動を仮定しながら進め、ImportErrorは無視してください。
 説明は書かず、出力だけを記述してください。
 """
-    llm_result = execute_openai(system_str, prompt[1:-1])
-    result = parse_llm_output_json(llm_result)
-
+    result = execute_openai_for_json(system_str, prompt[1:-1])
     return result
 
 
+@retry_with_exponential_backoff(max_retries=None)
 def extract_original_song_info(video_title: str, description: str):
     system_str = (
         "You are a python simulator, which simulates the evaluation result of input"
@@ -174,14 +176,12 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
 実装がない箇所は関数名から挙動を仮定しながら進め、ImportErrorは無視してください
 説明は書かず、出力だけを記述してください。
 """
-    llm_result = execute_openai(system_str, prompt[1:-1])
-    result = parse_llm_output_json(llm_result)
-
+    result = execute_openai_for_json(system_str, prompt[1:-1])
     return result
 
 
+@retry_with_exponential_backoff(max_retries=None)
 def extract_game_info(video_title: str):
-
     system_str = "You are a helpful assistant."
     prompt = f"""
 コンテキスト: {video_title}
@@ -192,9 +192,7 @@ def extract_game_info(video_title: str):
 {'{"game_title": answer}'}
 ```
 """
-    llm_result = execute_openai(system_str, prompt[1:-1])
-    result = parse_llm_output_json(llm_result, model="gpt-4")
-
+    result = execute_openai_for_json(system_str, prompt[1:-1])
     ans = result.get("game_title")
 
     if type(ans) == list:
@@ -241,9 +239,7 @@ def lambda_handler(event, context):
                         ans["artists"] = original_ans["singers"]
 
     elif video_type == "GAME":
-        ans |= {
-            "game_title": extract_game_info(video_title)
-        }
+        ans |= {"game_title": extract_game_info(video_title)}
     else:
         pass
 
