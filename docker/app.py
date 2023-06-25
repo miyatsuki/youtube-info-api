@@ -223,6 +223,7 @@ def lambda_handler(event, context):
         if song_info.get("is_cover") and song_info.get("original_url"):
             if type(song_info["original_url"]) == list:
                 song_info["original_url"] = song_info["original_url"][0]
+                ans["original_url"] = song_info["original_url"]
 
             youtube_id = extract_video_id_from_url(song_info["original_url"])
             if youtube_id:
