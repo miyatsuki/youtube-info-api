@@ -6,10 +6,8 @@ from typing import Literal
 
 import openai
 import requests
-from miyatsuki_tools.llm_openai import (
-    execute_openai_for_json,
-    retry_with_exponential_backoff,
-)
+from miyatsuki_tools.llm_openai import (execute_openai_for_json,
+                                        retry_with_exponential_backoff)
 
 base_dir = pathlib.Path(__file__).parent
 
@@ -223,6 +221,9 @@ def lambda_handler(event, context):
         ans |= song_info
 
         if song_info.get("is_cover") and song_info.get("original_url"):
+            if type(song_info["original_url"]) == list:
+                song_info["original_url"] = song_info["original_url"][0]
+
             youtube_id = extract_video_id_from_url(song_info["original_url"])
             if youtube_id:
                 items = fetch_youtube_video_info(youtube_id)["items"]
