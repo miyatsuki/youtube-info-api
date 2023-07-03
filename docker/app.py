@@ -10,7 +10,7 @@ from miyatsuki_tools.llm_openai import (execute_openai_for_json,
                                         retry_with_exponential_backoff)
 
 base_dir = pathlib.Path(__file__).parent
-
+DESCRIPTION_LENGTH_THRESHOLD = 1900
 
 def replace_urls(text, replacement=""):
     # URLを示す正規表現
@@ -70,7 +70,7 @@ def classify_video_category(
     system_str = "You are a helpful assistant."
     prompt = f"""
 説明文:
-{description[:2000]}
+{description[:DESCRIPTION_LENGTH_THRESHOLD]}
 
 =====
 
@@ -106,7 +106,7 @@ from typing import List, Optional
 import extract_song_title, extract_song_title, extract_singers, extract_original_artists, is_cover, extract_original_url
 
 video_title = "{video_title}"
-description = "{description[:2000]}"
+description = "{description[:DESCRIPTION_LENGTH_THRESHOLD]}"
 
 answer = {{}}
 
@@ -156,7 +156,7 @@ from typing import List
 import extract_song_title, extract_artists
 
 video_title = "{video_title}"
-description = "{description[:2000]}"
+description = "{description[:DESCRIPTION_LENGTH_THRESHOLD]}"
 
 answer = {{}}
 
