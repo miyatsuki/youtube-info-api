@@ -10,7 +10,7 @@ from miyatsuki_tools.llm_openai import (execute_openai_for_json,
                                         retry_with_exponential_backoff)
 
 base_dir = pathlib.Path(__file__).parent
-DESCRIPTION_LENGTH_THRESHOLD = 1900
+DESCRIPTION_LENGTH_THRESHOLD = 1800
 
 def replace_urls(text, replacement=""):
     # URLを示す正規表現
