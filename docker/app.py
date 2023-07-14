@@ -199,9 +199,9 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
 def extract_game_info(video_title: str):
     system_str = "You are a helpful assistant."
     prompt_base = """
-コンテキスト: {{}}
+コンテキスト: {}
 
-コンテキストはゲーム実況動画の説明文です。ゲームのタイトルを抽出してください。
+コンテキストはゲーム実況動画のタイトルです。ここからゲームのタイトルを抽出してください。
 結果は以下のフォーマットで返してください。説明は不要です
 ```json
 {{"game_title": answer}}
