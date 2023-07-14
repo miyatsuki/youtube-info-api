@@ -6,11 +6,14 @@ from typing import Literal
 
 import openai
 import requests
-from miyatsuki_tools.llm_openai import (execute_openai_for_json,
-                                        retry_with_exponential_backoff)
+from miyatsuki_tools.llm_openai import (
+    execute_openai_for_json,
+    retry_with_exponential_backoff,
+    trim_prompt,
+)
 
 base_dir = pathlib.Path(__file__).parent
-DESCRIPTION_LENGTH_THRESHOLD = 1800
+
 
 def replace_urls(text, replacement=""):
     # URLを示す正規表現
@@ -68,9 +71,9 @@ def classify_video_category(
     description = replace_urls(description, "[URL]")
 
     system_str = "You are a helpful assistant."
-    prompt = f"""
+    prompt_base = """
 説明文:
-{description[:DESCRIPTION_LENGTH_THRESHOLD]}
+{}
 
 =====
 
@@ -82,10 +85,12 @@ def classify_video_category(
 
 この時、説明文の動画はどのカテゴリでしょうか？結果は以下のフォーマットで返してください。説明は不要です。
 ```json
-{'{"video_type": category}'}
+{{"video_type": category}}
 ```
-"""
-    result = execute_openai_for_json(system_str, prompt[1:-1])
+""".strip()
+
+    prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
+    result = execute_openai_for_json(system_str, prompt)
 
     ans = result.get("video_type", "UNKNOWN").upper()
     if ans not in ["SONG", "SINGING_STREAM", "GAME", "UNKNOWN"]:
@@ -99,14 +104,15 @@ def extract_song_info(video_title: str, description: str):
     system_str = (
         "You are a python simulator, which simulates the evaluation result of input"
     )
-    prompt = f"""
+
+    prompt_base = """
 ```python
 import json
 from typing import List, Optional
 import extract_song_title, extract_song_title, extract_singers, extract_original_artists, is_cover, extract_original_url
 
-video_title = "{video_title}"
-description = "{description[:DESCRIPTION_LENGTH_THRESHOLD]}"
+video_title = "[VIDEO_TITLE]"
+description = "{}"
 
 answer = {{}}
 
@@ -139,8 +145,12 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
 上記のコードの実行をシミュレートしてコンソール出力を予想してください。
 実装がない箇所は関数名から挙動を仮定しながら進め、ImportErrorは無視してください。
 説明は書かず、出力だけを記述してください。
-"""
-    result = execute_openai_for_json(system_str, prompt[1:-1])
+""".replace(
+        "[VIDEO_TITLE]", video_title
+    ).strip()
+
+    prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
+    result = execute_openai_for_json(system_str, prompt)
     return result
 
 
@@ -149,14 +159,14 @@ def extract_original_song_info(video_title: str, description: str):
     system_str = (
         "You are a python simulator, which simulates the evaluation result of input"
     )
-    prompt = f"""
+    prompt_base = """
 ```python
 import json
 from typing import List
 import extract_song_title, extract_artists
 
-video_title = "{video_title}"
-description = "{description[:DESCRIPTION_LENGTH_THRESHOLD]}"
+video_title = "[VIDEO_TITLE]"
+description = "{}"
 
 answer = {{}}
 
@@ -173,7 +183,11 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
 上記のコードの実行をシミュレートしてコンソール出力を予想してください。
 実装がない箇所は関数名から挙動を仮定しながら進め、ImportErrorは無視してください
 説明は書かず、出力だけを記述してください。
-"""
+""".replace(
+        "[VIDEO_TITLE]", video_title
+    ).strip()
+
+    prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
     result = execute_openai_for_json(system_str, prompt[1:-1])
     return result
 
@@ -181,16 +195,17 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
 @retry_with_exponential_backoff(max_retries=None)
 def extract_game_info(video_title: str):
     system_str = "You are a helpful assistant."
-    prompt = f"""
-コンテキスト: {video_title}
+    prompt_base = """
+コンテキスト: {{}}
 
 コンテキストはゲーム実況動画の説明文です。ゲームのタイトルを抽出してください。
 結果は以下のフォーマットで返してください。説明は不要です
 ```json
-{'{"game_title": answer}'}
+{{"game_title": answer}}
 ```
 """
-    result = execute_openai_for_json(system_str, prompt[1:-1])
+    prompt, _ = trim_prompt(prompt_base, video_title, max_tokens=3000)
+    result = execute_openai_for_json(system_str, prompt)
     ans = result.get("game_title")
 
     if type(ans) == list:
