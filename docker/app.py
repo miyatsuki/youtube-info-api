@@ -90,6 +90,7 @@ def classify_video_category(
 """.strip()
 
     prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
+    print(json.dumps(prompt))
     result = execute_openai_for_json(system_str, prompt)
 
     ans = result.get("video_type", "UNKNOWN").upper()
@@ -150,6 +151,7 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
     ).strip()
 
     prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
+    print(json.dumps(prompt))
     result = execute_openai_for_json(system_str, prompt)
     return result
 
@@ -188,6 +190,7 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
     ).strip()
 
     prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
+    print(json.dumps(prompt))
     result = execute_openai_for_json(system_str, prompt[1:-1])
     return result
 
@@ -205,6 +208,7 @@ def extract_game_info(video_title: str):
 ```
 """
     prompt, _ = trim_prompt(prompt_base, video_title, max_tokens=3000)
+    print(json.dumps(prompt))
     result = execute_openai_for_json(system_str, prompt)
     ans = result.get("game_title")
 
