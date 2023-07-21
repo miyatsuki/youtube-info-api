@@ -1,6 +1,6 @@
 # gitからのpip install用
 FROM python:3.10 as tools
-RUN wget https://github.com/miyatsuki/tools/archive/refs/heads/main.zip
+RUN wget https://github.com/miyatsuki/tools/archive/231bc8eef59aa40e74deadc05aeeb9b30836ac8e.zip
 RUN unzip main.zip
 
 # 本番用
