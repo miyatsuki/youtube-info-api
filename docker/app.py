@@ -113,20 +113,6 @@ class CoverSongInfo(SongInfo):
     original_url: str | None
 
 
-def extract_song_info(video_title: str, description: str):
-    return marvin.cast(
-        json.dumps({"video_title": video_title, "description": description}),
-        target=CoverSongInfo,
-    )
-
-
-def extract_original_song_info(video_title: str, description: str):
-    return marvin.cast(
-        json.dumps({"video_title": video_title, "description": description}),
-        target=SongInfo,
-    )
-
-
 class GameInfo(BaseModel):
     """
     ゲーム実況動画の情報を格納するクラス
@@ -139,10 +125,6 @@ class GameInfo(BaseModel):
     game_title: str | None
 
 
-def extract_game_info(video_title: str):
-    return marvin.cast(json.dumps({"video_title": video_title}), target=GameInfo)
-
-
 def lambda_handler(event, context):
     print(event)
 
@@ -151,17 +133,11 @@ def lambda_handler(event, context):
     else:
         data = event
 
-    video_title: str = data["video_title"]
-    description: str = data["description"]
-
-    video = marvin.cast(
-        json.dumps({"title": video_title, "description": description}),
-        target=Video,
-    )
+    video = marvin.cast(json.dumps(data), target=Video)
     ans = {"category": video.category, "type": video.type}
 
     if video.category == "SONG":
-        song_info = extract_song_info(video_title, description)
+        song_info = marvin.cast(json.dumps(data), target=CoverSongInfo)
         ans |= song_info.model_dump()
 
         if song_info.is_cover and song_info.original_url:
@@ -171,23 +147,18 @@ def lambda_handler(event, context):
                 if len(items) > 0:
                     youtube_info = items[0]["snippet"]
                     original_video = marvin.cast(
-                        json.dumps(
-                            {
-                                "title": youtube_info["title"],
-                                "description": youtube_info["description"],
-                            }
-                        ),
+                        json.dumps(youtube_info),
                         target=Video,
                     )
                     if original_video.category == "SONG":
-                        original_ans = extract_original_song_info(
-                            youtube_info["title"], youtube_info["description"]
+                        original_ans = marvin.cast(
+                            json.dumps(youtube_info), target=SongInfo
                         )
                         ans["song_title"] = original_ans.song_title
                         ans["artists"] = original_ans.singers
 
     elif video.category == "GAME":
-        ans |= extract_game_info(video_title).model_dump()
+        ans |= marvin.cast(json.dumps(data), target=GameInfo).model_dump()
     else:
         pass
 
