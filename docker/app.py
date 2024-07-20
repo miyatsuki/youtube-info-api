@@ -76,20 +76,6 @@ def fetch_youtube_video_info(video_id: str):
     return result
 
 
-def execute_openai(system_str: str, prompt: str, model: str = "gpt-3.5-turbo"):
-    response = client.chat.completions(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_str},
-            {"role": "user", "content": prompt},
-        ],
-        max_tokens=1024,
-        temperature=0,  # 生成する応答の多様性,
-    )
-
-    return response.choices[0]["message"]["content"]
-
-
 def execute_openai_for_json(system_str: str, prompt: str, model: str = "gpt-3.5-turbo"):
     response = client.chat.completions.create(
         model=model,
