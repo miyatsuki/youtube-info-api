@@ -126,7 +126,7 @@ class GameInfo(BaseModel):
 
 
 def lambda_handler(event, context):
-    print(event)
+    print(json.dumps(event))
 
     if "body" in event:
         data = json.loads(event["body"])
@@ -156,7 +156,6 @@ def lambda_handler(event, context):
                         )
                         ans["song_title"] = original_ans.song_title
                         ans["artists"] = original_ans.singers
-
     elif video.category == "GAME":
         ans |= marvin.cast(json.dumps(data), target=GameInfo).model_dump()
     else:
