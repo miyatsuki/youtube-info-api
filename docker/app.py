@@ -5,16 +5,18 @@ import re
 from typing import Literal
 
 import marvin
-import openai
 import requests
-from miyatsuki_tools.llm_openai import (
-    execute_openai_for_json,
-    retry_with_exponential_backoff,
-    trim_prompt,
-)
+from openai import OpenAI
+
+# from miyatsuki_tools.llm_openai import (
+#    execute_openai_for_json,
+#    retry_with_exponential_backoff,
+#    trim_prompt,
+# )
 from pydantic import BaseModel
 
 marvin.settings.openai.chat.completions.model = "gpt-4o-mini"
+client = OpenAI()
 
 
 class Video(BaseModel):
@@ -75,7 +77,7 @@ def fetch_youtube_video_info(video_id: str):
 
 
 def execute_openai(system_str: str, prompt: str, model: str = "gpt-3.5-turbo"):
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions(
         model=model,
         messages=[
             {"role": "system", "content": system_str},
@@ -88,7 +90,22 @@ def execute_openai(system_str: str, prompt: str, model: str = "gpt-3.5-turbo"):
     return response.choices[0]["message"]["content"]
 
 
-@retry_with_exponential_backoff(max_retries=None)
+def execute_openai_for_json(system_str: str, prompt: str, model: str = "gpt-3.5-turbo"):
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_str},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=1024,
+        temperature=0,  # 生成する応答の多様性,
+        response_format={"type": "json_object"},
+    )
+
+    return json.loads(response.choices[0].message.content)
+
+
+# @retry_with_exponential_backoff(max_retries=None)
 def extract_song_info(video_title: str, description: str):
     system_str = (
         "You are a python simulator, which simulates the evaluation result of input"
@@ -138,13 +155,14 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
         "[VIDEO_TITLE]", video_title
     ).strip()
 
-    prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
+    prompt = prompt_base.format(description)
+    # prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
     print(json.dumps(prompt, indent=2, ensure_ascii=False))
     result = execute_openai_for_json(system_str, prompt)
     return result
 
 
-@retry_with_exponential_backoff(max_retries=None)
+# @retry_with_exponential_backoff(max_retries=None)
 def extract_original_song_info(video_title: str, description: str):
     system_str = (
         "You are a python simulator, which simulates the evaluation result of input"
@@ -177,13 +195,14 @@ print(json.dumps(answer, indent=2, ensure_ascii=False)))
         "[VIDEO_TITLE]", video_title
     ).strip()
 
-    prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
+    # prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
+    prompt = prompt_base.format(description)
     print(json.dumps(prompt, indent=2, ensure_ascii=False))
     result = execute_openai_for_json(system_str, prompt[1:-1])
     return result
 
 
-@retry_with_exponential_backoff(max_retries=None)
+# @retry_with_exponential_backoff(max_retries=None)
 def extract_game_info(video_title: str):
     system_str = "You are a helpful assistant."
     prompt_base = """
@@ -195,7 +214,8 @@ def extract_game_info(video_title: str):
 {{"game_title": answer}}
 ```
 """
-    prompt, _ = trim_prompt(prompt_base, video_title, max_tokens=3000)
+    # prompt, _ = trim_prompt(prompt_base, video_title, max_tokens=3000)
+    prompt = prompt_base.format(video_title)
     print(json.dumps(prompt, indent=2, ensure_ascii=False))
     result = execute_openai_for_json(system_str, prompt)
     ans = result.get("game_title")
@@ -224,9 +244,9 @@ def lambda_handler(event, context):
         json.dumps({"title": video_title, "description": description}),
         target=Video,
     )
-    ans = {"type": video.type}
+    ans = {"category": video.category, "type": video.type}
 
-    if video.type == "SONG":
+    if video.category == "SONG":
         song_info = extract_song_info(video_title, description)
         ans |= song_info
 
@@ -249,14 +269,14 @@ def lambda_handler(event, context):
                         ),
                         target=Video,
                     )
-                    if original_video.type == "SONG":
+                    if original_video.category == "SONG":
                         original_ans = extract_original_song_info(
                             youtube_info["title"], youtube_info["description"]
                         )
                         ans["song_title"] = original_ans["song_title"]
                         ans["artists"] = original_ans["singers"]
 
-    elif video.type == "GAME":
+    elif video.category == "GAME":
         ans |= {"game_title": extract_game_info(video_title)}
     else:
         pass
