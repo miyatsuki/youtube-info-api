@@ -25,6 +25,7 @@ export class YoutubeInfoApiStack extends cdk.Stack {
       runtime: lambda.Runtime.FROM_IMAGE,
       handler: lambda.Handler.FROM_IMAGE,
       timeout: cdk.Duration.seconds(60 * 15),
+      memorySize: 256,
       environment: {
         OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
         YOUTUBE_DATA_API_TOKEN: process.env.YOUTUBE_DATA_API_TOKEN!,
