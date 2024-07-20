@@ -1,9 +1,7 @@
-version: '3'
 services:
   lambda:
     build: .
     ports:
       - "9000:8080"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - YOUTUBE_DATA_API_TOKEN=${YOUTUBE_DATA_API_TOKEN}
+    env_file:
+      - .env
