@@ -4,6 +4,7 @@ import pathlib
 import re
 from typing import Literal
 
+import marvin
 import openai
 import requests
 from miyatsuki_tools.llm_openai import (
@@ -11,6 +12,30 @@ from miyatsuki_tools.llm_openai import (
     retry_with_exponential_backoff,
     trim_prompt,
 )
+from pydantic import BaseModel
+
+marvin.settings.openai.chat.completions.model = "gpt-4o-mini"
+
+
+class Video(BaseModel):
+    """
+    動画情報を格納するクラス
+
+    Attributes:
+    - category: Literal["SONG", "GAME", "UNKNOWN"]
+        動画のカテゴリ
+        - SONG: 歌ってみた動画
+        - GAME: ゲーム実況動画
+        - UNKNOWN: それ以外
+    - type: Literal["VIDEO", "STREAM"]
+        動画のタイプ
+        - VIDEO: 動画
+        - STREAM: 生放送
+    """
+
+    category: Literal["SONG", "GAME", "UNKNOWN"]
+    type: Literal["VIDEO", "STREAM"]
+
 
 base_dir = pathlib.Path(__file__).parent
 
@@ -61,43 +86,6 @@ def execute_openai(system_str: str, prompt: str, model: str = "gpt-3.5-turbo"):
     )
 
     return response.choices[0]["message"]["content"]
-
-
-@retry_with_exponential_backoff(max_retries=None)
-def classify_video_category(
-    video_title: str, description: str
-) -> Literal["SONG", "SINGING_STREAM", "GAME", "UNKNOWN"]:
-    description = video_title + "\n" + description
-    description = replace_urls(description, "[URL]")
-
-    system_str = "You are a helpful assistant."
-    prompt_base = """
-説明文:
-{}
-
-=====
-
-カテゴリを以下のように定義します
-# GAME: ゲーム実況・ゲーム実況の生放送
-# SINGING_STREAM: 歌枠
-# SONG: 歌ってみた動画
-# UNKNOWN: それ以外
-
-この時、説明文の動画はどのカテゴリでしょうか？結果は以下のフォーマットで返してください。説明は不要です。
-```json
-{{"video_type": category}}
-```
-""".strip()
-
-    prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
-    print(json.dumps(prompt, indent=2, ensure_ascii=False))
-    result = execute_openai_for_json(system_str, prompt)
-
-    ans = result.get("video_type", "UNKNOWN").upper()
-    if ans not in ["SONG", "SINGING_STREAM", "GAME", "UNKNOWN"]:
-        ans = "UNKNOWN"
-
-    return ans
 
 
 @retry_with_exponential_backoff(max_retries=None)
@@ -229,13 +217,16 @@ def lambda_handler(event, context):
     else:
         data = event
 
-    video_title = data["video_title"]
-    description = data["description"]
+    video_title: str = data["video_title"]
+    description: str = data["description"]
 
-    video_type = classify_video_category(video_title, description)
-    ans = {"type": video_type}
+    video = marvin.cast(
+        json.dumps({"title": video_title, "description": description}),
+        target=Video,
+    )
+    ans = {"type": video.type}
 
-    if video_type == "SONG":
+    if video.type == "SONG":
         song_info = extract_song_info(video_title, description)
         ans |= song_info
 
@@ -249,17 +240,23 @@ def lambda_handler(event, context):
                 items = fetch_youtube_video_info(youtube_id)["items"]
                 if len(items) > 0:
                     youtube_info = items[0]["snippet"]
-                    orignal_url_type = classify_video_category(
-                        youtube_info["title"], youtube_info["description"]
+                    original_video = marvin.cast(
+                        json.dumps(
+                            {
+                                "title": youtube_info["title"],
+                                "description": youtube_info["description"],
+                            }
+                        ),
+                        target=Video,
                     )
-                    if orignal_url_type == "SONG":
+                    if original_video.type == "SONG":
                         original_ans = extract_original_song_info(
                             youtube_info["title"], youtube_info["description"]
                         )
                         ans["song_title"] = original_ans["song_title"]
                         ans["artists"] = original_ans["singers"]
 
-    elif video_type == "GAME":
+    elif video.type == "GAME":
         ans |= {"game_title": extract_game_info(video_title)}
     else:
         pass
