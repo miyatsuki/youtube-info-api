@@ -91,61 +91,35 @@ def execute_openai_for_json(system_str: str, prompt: str, model: str = "gpt-3.5-
     return json.loads(response.choices[0].message.content)
 
 
-# @retry_with_exponential_backoff(max_retries=None)
+class SongInfo(BaseModel):
+    """
+    歌みた動画の情報を格納するクラス
+
+    Attributes:
+    - song_title: str
+        曲名
+    - singers: list[str]
+        歌手名
+    - is_cover: bool
+        カバー曲かどうか
+    - artists: list[str]
+        この曲の作者。is_coverがTrueの場合はカバー元の作者
+    - original_url: str
+        オリジナル曲のURL。is_coverがTrueの場合はカバー元のURL、そうでない場合はこの動画のURL
+    """
+
+    song_title: str | None
+    singers: list[str] | None
+    is_cover: bool
+    artists: list[str] | None
+    original_url: str | None
+
+
 def extract_song_info(video_title: str, description: str):
-    system_str = (
-        "You are a python simulator, which simulates the evaluation result of input"
+    return marvin.cast(
+        json.dumps({"video_title": video_title, "description": description}),
+        target=SongInfo,
     )
-
-    prompt_base = """
-```python
-import json
-from typing import List, Optional
-import extract_song_title, extract_song_title, extract_singers, extract_original_artists, is_cover, extract_original_url
-
-video_title = "[VIDEO_TITLE]"
-description = "{}"
-
-answer = {{}}
-
-# 動画のタイトルと概要欄から、曲名だけを抽出する。取得できない場合はNoneを返す
-song_title: str = extract_song_title(video_title=video_title, description=description)
-if song_title:
-    answer["song_title"] = song_title
-
-# 動画のタイトルと概要欄から、歌い手名を抽出する。取得できない場合は[]を返す
-singers: List[str] = extract_singers(video_title=video_title, description=description)
-if singers:
-    answer["singers"] = singers
-
-# 動画のタイトルと概要欄から、カバー曲かどうかを判定してフラグ追加
-answer["is_cover"] = is_cover(video_title=video_title, description=description):
-
-if answer["is_cover"]:
-    # 動画のタイトルと概要欄から、オリジナルのアーティスト名を抽出する。取得できない場合は[]を返す
-    artists: List[str] = extract_original_artists(video_title=video_title, description=description)
-    if artists:
-        answer["artists"] = artists
-
-    # 動画の概要欄に、カバー元のURLが含まれていたらそれを返し、なければNoneを返す
-    original_url: Optional[str] = extract_original_url(description=description)
-    if original_url:
-        answer["original_url"] = original_url
-
-print(json.dumps(answer, indent=2, ensure_ascii=False)))
-```
-上記のコードの実行をシミュレートしてコンソール出力を予想してください。
-実装がない箇所は関数名から挙動を仮定しながら進め、ImportErrorは無視してください。
-説明は書かず、出力だけを記述してください。
-""".replace(
-        "[VIDEO_TITLE]", video_title
-    ).strip()
-
-    prompt = prompt_base.format(description)
-    # prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
-    print(json.dumps(prompt, indent=2, ensure_ascii=False))
-    result = execute_openai_for_json(system_str, prompt)
-    return result
 
 
 # @retry_with_exponential_backoff(max_retries=None)
@@ -234,14 +208,10 @@ def lambda_handler(event, context):
 
     if video.category == "SONG":
         song_info = extract_song_info(video_title, description)
-        ans |= song_info
+        ans |= song_info.model_dump()
 
-        if song_info.get("is_cover") and song_info.get("original_url"):
-            if type(song_info["original_url"]) == list:
-                song_info["original_url"] = song_info["original_url"][0]
-                ans["original_url"] = song_info["original_url"]
-
-            youtube_id = extract_video_id_from_url(song_info["original_url"])
+        if song_info.is_cover and song_info.original_url:
+            youtube_id = extract_video_id_from_url(song_info.original_url)
             if youtube_id:
                 items = fetch_youtube_video_info(youtube_id)["items"]
                 if len(items) > 0:
