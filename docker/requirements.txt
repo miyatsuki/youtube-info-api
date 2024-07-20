@@ -1,5 +1,2 @@
-boto3
 marvin
-openai
 requests
-tiktoken

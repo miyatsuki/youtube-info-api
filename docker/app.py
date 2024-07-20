@@ -6,17 +6,9 @@ from typing import Literal
 
 import marvin
 import requests
-from openai import OpenAI
-
-# from miyatsuki_tools.llm_openai import (
-#    execute_openai_for_json,
-#    retry_with_exponential_backoff,
-#    trim_prompt,
-# )
 from pydantic import BaseModel
 
 marvin.settings.openai.chat.completions.model = "gpt-4o-mini"
-client = OpenAI()
 
 
 class Video(BaseModel):
@@ -74,21 +66,6 @@ def fetch_youtube_video_info(video_id: str):
     req = requests.get(video_url, params=param)
     result = req.json()
     return result
-
-
-def execute_openai_for_json(system_str: str, prompt: str, model: str = "gpt-3.5-turbo"):
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_str},
-            {"role": "user", "content": prompt},
-        ],
-        max_tokens=1024,
-        temperature=0,  # 生成する応答の多様性,
-        response_format={"type": "json_object"},
-    )
-
-    return json.loads(response.choices[0].message.content)
 
 
 class SongInfo(BaseModel):
@@ -162,7 +139,6 @@ class GameInfo(BaseModel):
     game_title: str | None
 
 
-# @retry_with_exponential_backoff(max_retries=None)
 def extract_game_info(video_title: str):
     return marvin.cast(json.dumps({"video_title": video_title}), target=GameInfo)
 
