@@ -100,16 +100,37 @@ class SongInfo(BaseModel):
         曲名
     - singers: list[str]
         歌手名
+        - ボカロ曲の場合はボカロPの名前
+        - それ以外の場合はアーティスト名
     - is_cover: bool
         カバー曲かどうか
-    - artists: list[str]
-        この曲の作者。is_coverがTrueの場合はカバー元の作者
-    - original_url: str
-        オリジナル曲のURL。is_coverがTrueの場合はカバー元のURL、そうでない場合はこの動画のURL
     """
 
     song_title: str | None
     singers: list[str] | None
+
+
+class CoverSongInfo(SongInfo):
+    """
+    歌みた動画の情報を格納するクラス
+
+    Attributes:
+    - song_title: str
+        曲名
+    - singers: list[str]
+        歌手名
+        - ボカロ曲の場合はボカロPの名前
+        - それ以外の場合はアーティスト名
+    - is_cover: bool
+        カバー曲かどうか
+    - artists: list[str]
+        この曲の作者。is_coverがTrueの場合はカバー元の作者
+        - ボカロ曲の場合はボカロPの名前
+        - それ以外の場合はアーティスト名
+    - original_url: str
+        オリジナル曲のURL。is_coverがTrueの場合はカバー元のURL、そうでない場合はこの動画のURL
+    """
+
     is_cover: bool
     artists: list[str] | None
     original_url: str | None
@@ -118,48 +139,15 @@ class SongInfo(BaseModel):
 def extract_song_info(video_title: str, description: str):
     return marvin.cast(
         json.dumps({"video_title": video_title, "description": description}),
+        target=CoverSongInfo,
+    )
+
+
+def extract_original_song_info(video_title: str, description: str):
+    return marvin.cast(
+        json.dumps({"video_title": video_title, "description": description}),
         target=SongInfo,
     )
-
-
-# @retry_with_exponential_backoff(max_retries=None)
-def extract_original_song_info(video_title: str, description: str):
-    system_str = (
-        "You are a python simulator, which simulates the evaluation result of input"
-    )
-    prompt_base = """
-```python
-import json
-from typing import List
-import extract_song_title, extract_artists
-
-video_title = "[VIDEO_TITLE]"
-description = "{}"
-
-answer = {{}}
-
-# 動画のタイトルと概要欄から、曲名だけを抽出する
-song_title: str = extract_song_title(video_title=video_title, description=description)
-answer["song_title"] = song_title
-
-# 動画のタイトルと概要欄から、歌手名を抽出する
-singers: List[str] = extract_singers(video_title=video_title, description=description)
-answer["singers"] = singers
-
-print(json.dumps(answer, indent=2, ensure_ascii=False)))
-```
-上記のコードの実行をシミュレートしてコンソール出力を予想してください。
-実装がない箇所は関数名から挙動を仮定しながら進め、ImportErrorは無視してください
-説明は書かず、出力だけを記述してください。
-""".replace(
-        "[VIDEO_TITLE]", video_title
-    ).strip()
-
-    # prompt, _ = trim_prompt(prompt_base, description, max_tokens=3000)
-    prompt = prompt_base.format(description)
-    print(json.dumps(prompt, indent=2, ensure_ascii=False))
-    result = execute_openai_for_json(system_str, prompt[1:-1])
-    return result
 
 
 # @retry_with_exponential_backoff(max_retries=None)
@@ -229,8 +217,8 @@ def lambda_handler(event, context):
                         original_ans = extract_original_song_info(
                             youtube_info["title"], youtube_info["description"]
                         )
-                        ans["song_title"] = original_ans["song_title"]
-                        ans["artists"] = original_ans["singers"]
+                        ans["song_title"] = original_ans.song_title
+                        ans["artists"] = original_ans.singers
 
     elif video.category == "GAME":
         ans |= {"game_title": extract_game_info(video_title)}
