@@ -150,31 +150,21 @@ def extract_original_song_info(video_title: str, description: str):
     )
 
 
+class GameInfo(BaseModel):
+    """
+    ゲーム実況動画の情報を格納するクラス
+
+    Attributes:
+    - game_title: str
+        ゲームのタイトル
+    """
+
+    game_title: str | None
+
+
 # @retry_with_exponential_backoff(max_retries=None)
 def extract_game_info(video_title: str):
-    system_str = "You are a helpful assistant."
-    prompt_base = """
-コンテキスト: {}
-
-コンテキストはゲーム実況動画のタイトルです。ここからゲームのタイトルを抽出してください。
-結果は以下のフォーマットで返してください。説明は不要です
-```json
-{{"game_title": answer}}
-```
-"""
-    # prompt, _ = trim_prompt(prompt_base, video_title, max_tokens=3000)
-    prompt = prompt_base.format(video_title)
-    print(json.dumps(prompt, indent=2, ensure_ascii=False))
-    result = execute_openai_for_json(system_str, prompt)
-    ans = result.get("game_title")
-
-    if type(ans) == list:
-        if len(ans) > 0:
-            ans = ans[0]
-        else:
-            ans = None
-
-    return ans
+    return marvin.cast(json.dumps({"video_title": video_title}), target=GameInfo)
 
 
 def lambda_handler(event, context):
@@ -221,7 +211,7 @@ def lambda_handler(event, context):
                         ans["artists"] = original_ans.singers
 
     elif video.category == "GAME":
-        ans |= {"game_title": extract_game_info(video_title)}
+        ans |= extract_game_info(video_title).model_dump()
     else:
         pass
 
