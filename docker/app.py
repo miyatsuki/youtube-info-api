@@ -208,7 +208,7 @@ def lambda_handler(event, context):
                         ans["song_title"] = original_ans.song_title
                         ans["artists"] = original_ans.singers
     elif video.category == "GAME":
-        ans |= parse_by_llm(json.dumps(data), GameInfo)
+        ans |= parse_by_llm(json.dumps(data), GameInfo).model_dump()
     else:
         pass
 
