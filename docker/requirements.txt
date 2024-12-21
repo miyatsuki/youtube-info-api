@@ -1,2 +1,2 @@
-marvin==2.3.6
+marvin==2.3.8
 requests==2.32.3
